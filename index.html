@@ -6,150 +6,169 @@
   <title>Cartoon Snake Game</title>
   <style>
     * {
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
-      box-sizing: border-box;
     }
-    body {
-      background: linear-gradient(to right, #00c3ff, #ffff1c);
+    html, body {
+      height: 100%;
+      background: linear-gradient(to right, #ffecd2, #fcb69f);
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+    }
+    #gameContainer {
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      height: 100vh;
-      overflow: hidden;
+      justify-content: center;
+      height: 100%;
     }
     canvas {
-      background: #222;
-      border-radius: 16px;
-      box-shadow: 0 0 20px #000;
+      background-color: #fff3e0;
+      border: 5px dashed #ff6f61;
+      border-radius: 15px;
+    }
+    #score {
+      margin: 10px;
+      font-size: 24px;
+      color: #ff6f61;
+    }
+    #retry {
+      margin-top: 10px;
+      padding: 10px 20px;
+      background-color: #ff6f61;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 18px;
+      display: none;
     }
   </style>
 </head>
 <body>
-  <canvas id="snake" width="400" height="400"></canvas>
+  <div id="gameContainer">
+    <div id="score">Score: 0</div>
+    <canvas id="game" width="400" height="400"></canvas>
+    <button id="retry">Retry</button>
+  </div>
 
   <script>
-    const canvas = document.getElementById("snake");
-    const ctx = canvas.getContext("2d");
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
     const box = 20;
+    let snake = [{ x: 160, y: 160 }];
+    let direction = 'RIGHT';
+    let food = generateFood();
     let score = 0;
-    let snake = [{ x: 9, y: 10 }];
-    let food = {
-      x: Math.floor(Math.random() * 19),
-      y: Math.floor(Math.random() * 19),
-    };
-    let d;
+    let game;
 
-    document.addEventListener("keydown", direction);
+    const retryBtn = document.getElementById('retry');
+    const scoreDisplay = document.getElementById('score');
 
-    function direction(event) {
-      if (event.key === "ArrowLeft" && d !== "RIGHT") d = "LEFT";
-      else if (event.key === "ArrowUp" && d !== "DOWN") d = "UP";
-      else if (event.key === "ArrowRight" && d !== "LEFT") d = "RIGHT";
-      else if (event.key === "ArrowDown" && d !== "UP") d = "DOWN";
+    document.addEventListener('keydown', changeDirection);
+    document.addEventListener('touchstart', handleTouchStart, false);
+    document.addEventListener('touchmove', handleTouchMove, false);
+
+    let xDown = null;
+    let yDown = null;
+
+    function handleTouchStart(evt) {
+      const firstTouch = evt.touches[0];
+      xDown = firstTouch.clientX;
+      yDown = firstTouch.clientY;
     }
 
-    CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, radius) {
-      this.beginPath();
-      this.moveTo(x + radius, y);
-      this.lineTo(x + width - radius, y);
-      this.quadraticCurveTo(x + width, y, x + width, y + radius);
-      this.lineTo(x + width, y + height - radius);
-      this.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-      this.lineTo(x + radius, y + height);
-      this.quadraticCurveTo(x, y + height, x, y + height - radius);
-      this.lineTo(x, y + radius);
-      this.quadraticCurveTo(x, y, x + radius, y);
-      this.closePath();
-      return this;
-    };
+    function handleTouchMove(evt) {
+      if (!xDown || !yDown) return;
 
-    function drawSnake() {
-      for (let i = 0; i < snake.length; i++) {
-        const s = snake[i];
-        const x = s.x * box;
-        const y = s.y * box;
+      let xUp = evt.touches[0].clientX;
+      let yUp = evt.touches[0].clientY;
 
-        if (i === 0) {
-          // Head
-          ctx.fillStyle = "#ffcc00";
-          ctx.strokeStyle = "#b8860b";
-          ctx.lineWidth = 2;
-          ctx.roundRect(x, y, box, box, 8).fill();
-          ctx.stroke();
+      let xDiff = xDown - xUp;
+      let yDiff = yDown - yUp;
 
-          // Eyes
-          ctx.fillStyle = "#000";
-          ctx.beginPath();
-          ctx.arc(x + box * 0.25, y + box * 0.3, 2, 0, Math.PI * 2);
-          ctx.arc(x + box * 0.75, y + box * 0.3, 2, 0, Math.PI * 2);
-          ctx.fill();
-        } else {
-          // Body
-          ctx.fillStyle = "#00ccff";
-          ctx.strokeStyle = "#007799";
-          ctx.lineWidth = 2;
-          ctx.roundRect(x, y, box, box, 6).fill();
-          ctx.stroke();
-        }
+      if (Math.abs(xDiff) > Math.abs(yDiff)) {
+        direction = xDiff > 0 ? 'LEFT' : 'RIGHT';
+      } else {
+        direction = yDiff > 0 ? 'UP' : 'DOWN';
       }
+
+      xDown = null;
+      yDown = null;
     }
 
-    function drawFood() {
-      ctx.fillStyle = "#ff4444";
-      ctx.beginPath();
-      ctx.arc(food.x * box + box / 2, food.y * box + box / 2, box / 2.5, 0, Math.PI * 2);
-      ctx.fill();
+    function changeDirection(e) {
+      if (e.key === 'ArrowUp' && direction !== 'DOWN') direction = 'UP';
+      if (e.key === 'ArrowDown' && direction !== 'UP') direction = 'DOWN';
+      if (e.key === 'ArrowLeft' && direction !== 'RIGHT') direction = 'LEFT';
+      if (e.key === 'ArrowRight' && direction !== 'LEFT') direction = 'RIGHT';
     }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawSnake();
-      drawFood();
 
-      // New head position
-      let headX = snake[0].x;
-      let headY = snake[0].y;
+      // Draw snake
+      for (let i = 0; i < snake.length; i++) {
+        ctx.fillStyle = i === 0 ? '#ff4081' : '#ffd54f';
+        ctx.beginPath();
+        ctx.arc(snake[i].x + box / 2, snake[i].y + box / 2, box / 2 - 2, 0, 2 * Math.PI);
+        ctx.fill();
+      }
 
-      if (d === "LEFT") headX--;
-      if (d === "UP") headY--;
-      if (d === "RIGHT") headX++;
-      if (d === "DOWN") headY++;
+      // Draw food
+      ctx.fillStyle = '#4caf50';
+      ctx.beginPath();
+      ctx.arc(food.x + box / 2, food.y + box / 2, box / 2 - 2, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // Move snake
+      let head = { ...snake[0] };
+      if (direction === 'LEFT') head.x -= box;
+      if (direction === 'RIGHT') head.x += box;
+      if (direction === 'UP') head.y -= box;
+      if (direction === 'DOWN') head.y += box;
 
       // Game over conditions
       if (
-        headX < 0 ||
-        headY < 0 ||
-        headX * box >= canvas.width ||
-        headY * box >= canvas.height ||
-        snake.some((s, i) => i !== 0 && s.x === headX && s.y === headY)
+        head.x < 0 || head.y < 0 ||
+        head.x >= canvas.width ||
+        head.y >= canvas.height ||
+        snake.some(segment => segment.x === head.x && segment.y === head.y)
       ) {
         clearInterval(game);
-        alert("Game Over! Score: " + score);
-        location.reload();
+        retryBtn.style.display = 'inline-block';
+        return;
       }
 
-      // Food eaten
-      let newHead = { x: headX, y: headY };
-      if (headX === food.x && headY === food.y) {
-        score++;
-        food = {
-          x: Math.floor(Math.random() * 19),
-          y: Math.floor(Math.random() * 19),
-        };
+      snake.unshift(head);
+
+      if (head.x === food.x && head.y === food.y) {
+        score += 1;
+        scoreDisplay.textContent = 'Score: ' + score;
+        food = generateFood();
       } else {
         snake.pop();
       }
-
-      snake.unshift(newHead);
     }
 
-    const game = setInterval(draw, 100);
+    function generateFood() {
+      return {
+        x: Math.floor(Math.random() * (canvas.width / box)) * box,
+        y: Math.floor(Math.random() * (canvas.height / box)) * box
+      };
+    }
 
-    // Prevent pull-to-refresh on mobile
-    window.addEventListener("touchmove", function (e) {
-      e.preventDefault();
-    }, { passive: false });
+    retryBtn.addEventListener('click', () => {
+      snake = [{ x: 160, y: 160 }];
+      direction = 'RIGHT';
+      food = generateFood();
+      score = 0;
+      scoreDisplay.textContent = 'Score: 0';
+      retryBtn.style.display = 'none';
+      game = setInterval(draw, 200); // Slow speed here (increased from 100 to 200)
+    });
+
+    game = setInterval(draw, 200); // Slow speed here (increased from 100 to 200)
   </script>
 </body>
 </html>
