@@ -274,6 +274,7 @@
             let score = 0;
             let gameInterval;
             let isGameRunning = false;
+            let isFirstMove = true;
             
             // Initialize the game board
             function initializeBoard() {
@@ -360,6 +361,11 @@
             
             // Update game state
             function update() {
+                if (isFirstMove) {
+                    isFirstMove = false;
+                    return;
+                }
+                
                 if (!direction) return;
                 
                 // Update direction if there's a queued direction change
@@ -422,11 +428,13 @@
                 direction = null;
                 nextDirection = null;
                 score = 0;
+                isFirstMove = true;
                 scoreDisplay.textContent = `Score: ${score}`;
                 gameOverScreen.style.display = 'none';
                 isGameRunning = true;
                 
                 // Start game loop
+                clearInterval(gameInterval); // Clear any existing interval
                 gameInterval = setInterval(update, gameSpeed);
                 draw();
             }
@@ -441,25 +449,49 @@
             
             // Event listeners for keyboard controls
             document.addEventListener('keydown', e => {
-                if (!isGameRunning && direction === null && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                if (!isGameRunning && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
                     startGame();
                 }
                 
                 switch (e.key) {
                     case 'ArrowUp':
-                        if (direction !== 'DOWN') nextDirection = 'UP';
+                        if (direction !== 'DOWN') {
+                            if (!direction) {
+                                direction = 'UP'; // Set initial direction immediately
+                            } else {
+                                nextDirection = 'UP';
+                            }
+                        }
                         e.preventDefault();
                         break;
                     case 'ArrowDown':
-                        if (direction !== 'UP') nextDirection = 'DOWN';
+                        if (direction !== 'UP') {
+                            if (!direction) {
+                                direction = 'DOWN';
+                            } else {
+                                nextDirection = 'DOWN';
+                            }
+                        }
                         e.preventDefault();
                         break;
                     case 'ArrowLeft':
-                        if (direction !== 'RIGHT') nextDirection = 'LEFT';
+                        if (direction !== 'RIGHT') {
+                            if (!direction) {
+                                direction = 'LEFT';
+                            } else {
+                                nextDirection = 'LEFT';
+                            }
+                        }
                         e.preventDefault();
                         break;
                     case 'ArrowRight':
-                        if (direction !== 'LEFT') nextDirection = 'RIGHT';
+                        if (direction !== 'LEFT') {
+                            if (!direction) {
+                                direction = 'RIGHT';
+                            } else {
+                                nextDirection = 'RIGHT';
+                            }
+                        }
                         e.preventDefault();
                         break;
                 }
@@ -467,23 +499,47 @@
             
             // Event listeners for mobile controls
             upBtn.addEventListener('click', () => {
-                if (!isGameRunning && direction === null) startGame();
-                if (direction !== 'DOWN') nextDirection = 'UP';
+                if (!isGameRunning) startGame();
+                if (direction !== 'DOWN') {
+                    if (!direction) {
+                        direction = 'UP';
+                    } else {
+                        nextDirection = 'UP';
+                    }
+                }
             });
             
             downBtn.addEventListener('click', () => {
-                if (!isGameRunning && direction === null) startGame();
-                if (direction !== 'UP') nextDirection = 'DOWN';
+                if (!isGameRunning) startGame();
+                if (direction !== 'UP') {
+                    if (!direction) {
+                        direction = 'DOWN';
+                    } else {
+                        nextDirection = 'DOWN';
+                    }
+                }
             });
             
             leftBtn.addEventListener('click', () => {
-                if (!isGameRunning && direction === null) startGame();
-                if (direction !== 'RIGHT') nextDirection = 'LEFT';
+                if (!isGameRunning) startGame();
+                if (direction !== 'RIGHT') {
+                    if (!direction) {
+                        direction = 'LEFT';
+                    } else {
+                        nextDirection = 'LEFT';
+                    }
+                }
             });
             
             rightBtn.addEventListener('click', () => {
-                if (!isGameRunning && direction === null) startGame();
-                if (direction !== 'LEFT') nextDirection = 'RIGHT';
+                if (!isGameRunning) startGame();
+                if (direction !== 'LEFT') {
+                    if (!direction) {
+                        direction = 'RIGHT';
+                    } else {
+                        nextDirection = 'RIGHT';
+                    }
+                }
             });
             
             // Touch controls for swiping
@@ -497,7 +553,12 @@
             }, {passive: false});
             
             document.addEventListener('touchmove', e => {
-                if (!touchStartX || !touchStartY || !isGameRunning) return;
+                if (!isGameRunning) {
+                    startGame();
+                    return;
+                }
+                
+                if (!touchStartX || !touchStartY) return;
                 
                 const touchEndX = e.changedTouches[0].screenX;
                 const touchEndY = e.changedTouches[0].screenY;
@@ -508,15 +569,31 @@
                 // Determine swipe direction
                 if (Math.abs(dx) > Math.abs(dy)) {
                     if (dx > 0 && direction !== 'LEFT') {
-                        nextDirection = 'RIGHT';
+                        if (!direction) {
+                            direction = 'RIGHT';
+                        } else {
+                            nextDirection = 'RIGHT';
+                        }
                     } else if (dx < 0 && direction !== 'RIGHT') {
-                        nextDirection = 'LEFT';
+                        if (!direction) {
+                            direction = 'LEFT';
+                        } else {
+                            nextDirection = 'LEFT';
+                        }
                     }
                 } else {
                     if (dy > 0 && direction !== 'UP') {
-                        nextDirection = 'DOWN';
+                        if (!direction) {
+                            direction = 'DOWN';
+                        } else {
+                            nextDirection = 'DOWN';
+                        }
                     } else if (dy < 0 && direction !== 'DOWN') {
-                        nextDirection = 'UP';
+                        if (!direction) {
+                            direction = 'UP';
+                        } else {
+                            nextDirection = 'UP';
+                        }
                     }
                 }
                 
