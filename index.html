@@ -1,44 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Cartoon Snake Game</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: linear-gradient(to right, #00c9ff, #92fe9d);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
+      min-height: 100vh;
       font-family: Arial, sans-serif;
-      touch-action: none;
+      touch-action: manipulation;
       overflow: hidden;
     }
-
-    h1 {
-      margin: 10px;
-      color: #333;
-    }
-
+    h1 { margin: 10px; color: #333; }
     canvas {
       background: #fff;
       border: 5px solid #333;
+      display: block; /* Remove potential whitespace */
     }
-
-    #score {
-      margin: 10px;
-      font-size: 1.2rem;
-      color: #333;
-    }
-
+    #score { margin: 10px; font-size: 1.2rem; color: #333; }
     #retry {
       margin: 10px;
       padding: 8px 16px;
@@ -48,11 +33,9 @@
       border-radius: 5px;
       cursor: pointer;
       display: none;
+      transition: background 0.2s;
     }
-
-    #retry:hover {
-      background: #e60000;
-    }
+    #retry:hover, #retry:focus { background: #e60000; }
   </style>
 </head>
 <body>
@@ -62,134 +45,209 @@
   <button id="retry">Retry</button>
 
   <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    const box = 20;
-    const canvasSize = 20;
-    let snake = [{ x: 9 * box, y: 10 * box }];
-    let direction = null;
-    let food = generateFood();
-    let score = 0;
-    let game;
-    const retryBtn = document.getElementById("retry");
-    const scoreText = document.getElementById("score");
-
-    function generateFood() {
-      return {
-        x: Math.floor(Math.random() * canvasSize) * box,
-        y: Math.floor(Math.random() * canvasSize) * box
+    (function() {
+      'use strict';
+      
+      // Constants
+      const BOX_SIZE = 20;
+      const CANVAS_SIZE = 20;
+      const GAME_SPEED = 180;
+      const COLORS = {
+        snake: '#4CAF50',
+        food: '#e74c3c',
+        eyeWhite: '#fff',
+        eyePupil: '#000'
       };
-    }
-
-    function drawCartoonSnakePart(x, y, isHead = false) {
-      ctx.fillStyle = "#4CAF50";
-      ctx.beginPath();
-      ctx.arc(x + box / 2, y + box / 2, box / 2.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      if (isHead) {
-        // Eyes
-        ctx.fillStyle = "#fff";
+      
+      // DOM elements
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      const retryBtn = document.getElementById("retry");
+      const scoreText = document.getElementById("score");
+      
+      // Game state
+      let snake = [{ x: 9 * BOX_SIZE, y: 10 * BOX_SIZE }];
+      let direction = null;
+      let food = generateFood();
+      let score = 0;
+      let gameLoop;
+      let lastRenderTime = 0;
+      let touchStartX = 0;
+      let touchStartY = 0;
+      
+      // Initialize game
+      init();
+      
+      function init() {
+        // Event listeners
+        document.addEventListener("keydown", handleKeyDown);
+        retryBtn.addEventListener("click", resetGame);
+        document.addEventListener("touchstart", handleTouchStart, { passive: true });
+        document.addEventListener("touchmove", handleTouchMove, { passive: false });
+        
+        // Start game loop using requestAnimationFrame
+        gameLoop = requestAnimationFrame(updateGame);
+      }
+      
+      function generateFood() {
+        return {
+          x: Math.floor(Math.random() * CANVAS_SIZE) * BOX_SIZE,
+          y: Math.floor(Math.random() * CANVAS_SIZE) * BOX_SIZE
+        };
+      }
+      
+      function drawSnakePart(x, y, isHead = false) {
+        const centerX = x + BOX_SIZE / 2;
+        const centerY = y + BOX_SIZE / 2;
+        const radius = BOX_SIZE / 2.5;
+        
+        // Draw snake body/head
+        ctx.fillStyle = COLORS.snake;
         ctx.beginPath();
-        ctx.arc(x + 5, y + 6, 3, 0, 2 * Math.PI);
-        ctx.arc(x + 15, y + 6, 3, 0, 2 * Math.PI);
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         ctx.fill();
-
-        ctx.fillStyle = "#000";
+        
+        // Draw eyes if it's the head
+        if (isHead) {
+          // Left eye
+          drawEye(x + 5, y + 6);
+          // Right eye
+          drawEye(x + 15, y + 6);
+        }
+      }
+      
+      function drawEye(x, y) {
+        // Eye white
+        ctx.fillStyle = COLORS.eyeWhite;
         ctx.beginPath();
-        ctx.arc(x + 5, y + 6, 1.5, 0, 2 * Math.PI);
-        ctx.arc(x + 15, y + 6, 1.5, 0, 2 * Math.PI);
+        ctx.arc(x, y, 3, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Pupil
+        ctx.fillStyle = COLORS.eyePupil;
+        ctx.beginPath();
+        ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
         ctx.fill();
       }
-    }
-
-    function drawGame() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Draw Snake
-      snake.forEach((segment, index) => {
-        drawCartoonSnakePart(segment.x, segment.y, index === 0);
-      });
-
-      // Draw Food
-      ctx.fillStyle = "#e74c3c";
-      ctx.beginPath();
-      ctx.arc(food.x + box / 2, food.y + box / 2, box / 3, 0, 2 * Math.PI);
-      ctx.fill();
-
-      // Move Snake
-      let head = { x: snake[0].x, y: snake[0].y };
-
-      switch (direction) {
-        case "LEFT": head.x -= box; break;
-        case "RIGHT": head.x += box; break;
-        case "UP": head.y -= box; break;
-        case "DOWN": head.y += box; break;
+      
+      function drawFood() {
+        ctx.fillStyle = COLORS.food;
+        ctx.beginPath();
+        ctx.arc(
+          food.x + BOX_SIZE / 2,
+          food.y + BOX_SIZE / 2,
+          BOX_SIZE / 3,
+          0,
+          2 * Math.PI
+        );
+        ctx.fill();
       }
-
-      if (direction) snake.unshift(head);
-
-      // Eat Food
-      if (head.x === food.x && head.y === food.y) {
-        food = generateFood();
-        score++;
-        scoreText.textContent = "Score: " + score;
-      } else {
-        snake.pop();
+      
+      function updateGame(timestamp) {
+        // Throttle updates to maintain consistent speed
+        if (timestamp - lastRenderTime < GAME_SPEED) {
+          gameLoop = requestAnimationFrame(updateGame);
+          return;
+        }
+        lastRenderTime = timestamp;
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw game elements
+        snake.forEach((segment, index) => {
+          drawSnakePart(segment.x, segment.y, index === 0);
+        });
+        drawFood();
+        
+        // Move snake if direction is set
+        if (direction) {
+          const head = { ...snake[0] };
+          
+          // Update head position based on direction
+          switch (direction) {
+            case "LEFT": head.x -= BOX_SIZE; break;
+            case "RIGHT": head.x += BOX_SIZE; break;
+            case "UP": head.y -= BOX_SIZE; break;
+            case "DOWN": head.y += BOX_SIZE; break;
+          }
+          
+          snake.unshift(head);
+          
+          // Check for food collision
+          if (head.x === food.x && head.y === food.y) {
+            score++;
+            scoreText.textContent = `Score: ${score}`;
+            food = generateFood();
+          } else {
+            snake.pop();
+          }
+          
+          // Check for collisions
+          if (
+            head.x < 0 || head.x >= canvas.width ||
+            head.y < 0 || head.y >= canvas.height ||
+            snake.slice(1).some(seg => seg.x === head.x && seg.y === head.y)
+          ) {
+            endGame();
+            return;
+          }
+        }
+        
+        gameLoop = requestAnimationFrame(updateGame);
       }
-
-      // Check collision
-      if (
-        head.x < 0 || head.x >= canvas.width ||
-        head.y < 0 || head.y >= canvas.height ||
-        snake.slice(1).some(seg => seg.x === head.x && seg.y === head.y)
-      ) {
-        clearInterval(game);
+      
+      function handleKeyDown(e) {
+        // Prevent default for arrow keys to avoid page scrolling
+        if (['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].includes(e.key)) {
+          e.preventDefault();
+        }
+        
+        // Update direction with boundary checks
+        switch (e.key) {
+          case "ArrowLeft": if (direction !== "RIGHT") direction = "LEFT"; break;
+          case "ArrowUp": if (direction !== "DOWN") direction = "UP"; break;
+          case "ArrowRight": if (direction !== "LEFT") direction = "RIGHT"; break;
+          case "ArrowDown": if (direction !== "UP") direction = "DOWN"; break;
+        }
+      }
+      
+      function handleTouchStart(e) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }
+      
+      function handleTouchMove(e) {
+        e.preventDefault();
+        const deltaX = e.touches[0].clientX - touchStartX;
+        const deltaY = e.touches[0].clientY - touchStartY;
+        
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          if (deltaX > 0 && direction !== "LEFT") direction = "RIGHT";
+          else if (deltaX < 0 && direction !== "RIGHT") direction = "LEFT";
+        } else {
+          if (deltaY > 0 && direction !== "UP") direction = "DOWN";
+          else if (deltaY < 0 && direction !== "DOWN") direction = "UP";
+        }
+      }
+      
+      function endGame() {
+        cancelAnimationFrame(gameLoop);
         retryBtn.style.display = "inline-block";
+        retryBtn.focus();
       }
-    }
-
-    function setDirection(e) {
-      if (e.key === "ArrowLeft" && direction !== "RIGHT") direction = "LEFT";
-      if (e.key === "ArrowUp" && direction !== "DOWN") direction = "UP";
-      if (e.key === "ArrowRight" && direction !== "LEFT") direction = "RIGHT";
-      if (e.key === "ArrowDown" && direction !== "UP") direction = "DOWN";
-    }
-
-    document.addEventListener("keydown", setDirection);
-
-    retryBtn.addEventListener("click", () => {
-      retryBtn.style.display = "none";
-      snake = [{ x: 9 * box, y: 10 * box }];
-      direction = null;
-      food = generateFood();
-      score = 0;
-      scoreText.textContent = "Score: 0";
-      game = setInterval(drawGame, 180); // slowed down for better play
-    });
-
-    // Touch Controls for mobile
-    let touchStartX = 0;
-    let touchStartY = 0;
-    document.addEventListener("touchstart", e => {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    });
-
-    document.addEventListener("touchmove", e => {
-      const deltaX = e.touches[0].clientX - touchStartX;
-      const deltaY = e.touches[0].clientY - touchStartY;
-
-      if (Math.abs(deltaX) > Math.abs(deltaY)) {
-        if (deltaX > 0 && direction !== "LEFT") direction = "RIGHT";
-        else if (deltaX < 0 && direction !== "RIGHT") direction = "LEFT";
-      } else {
-        if (deltaY > 0 && direction !== "UP") direction = "DOWN";
-        else if (deltaY < 0 && direction !== "DOWN") direction = "UP";
+      
+      function resetGame() {
+        cancelAnimationFrame(gameLoop);
+        snake = [{ x: 9 * BOX_SIZE, y: 10 * BOX_SIZE }];
+        direction = null;
+        food = generateFood();
+        score = 0;
+        scoreText.textContent = "Score: 0";
+        retryBtn.style.display = "none";
+        lastRenderTime = 0;
+        gameLoop = requestAnimationFrame(updateGame);
       }
-    });
-
-    game = setInterval(drawGame, 180); // initial game start
+    })();
   </script>
 </body>
 </html>
